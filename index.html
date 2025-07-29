@@ -1,0 +1,82 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Simforge v9 – Split + Export</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #111; color: #eee; text-align: center; padding: 20px; }
+    textarea { width: 90%; height: 180px; margin: 10px 0; padding: 10px; font-size: 16px; }
+    button { padding: 10px 20px; font-size: 16px; margin: 10px; }
+    video { margin-top: 20px; width: 90%; max-width: 600px; display: none; }
+  </style>
+</head>
+<body>
+  <h1>🎬 Simforge v9</h1>
+  <p>Write your full script. It will auto-split and simulate in parts.<br>You get <b>8 free simulations</b> before payment is required.</p>
+  <textarea id="scriptInput" placeholder="Type your 5000-word story or script..."></textarea><br>
+  <button onclick="begin()">🎙️ Simulate Now</button>
+  <video id="videoPlayer" controls></video>
+
+  <script>
+    let usageCount = parseInt(localStorage.getItem('simforge_usage') || '0');
+    const maxFree = 8;
+
+    function speakPart(part, callback) {
+      const utterance = new SpeechSynthesisUtterance(part);
+      utterance.lang = 'en-US';
+      utterance.onend = callback;
+      speechSynthesis.speak(utterance);
+    }
+
+    function recordAndSpeak(text, partIndex) {
+      return new Promise((resolve) => {
+        const stream = document.body.captureStream();
+        const recorder = new MediaRecorder(stream);
+        const chunks = [];
+
+        recorder.ondataavailable = e => chunks.push(e.data);
+        recorder.onstop = () => {
+          const blob = new Blob(chunks, { type: 'video/webm' });
+          const url = URL.createObjectURL(blob);
+
+          const video = document.getElementById("videoPlayer");
+          video.src = url;
+          video.style.display = "block";
+
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "simforge_part_" + (partIndex + 1) + ".webm";
+          a.click();
+          resolve();
+        };
+
+        recorder.start();
+        speakPart(text, () => recorder.stop());
+      });
+    }
+
+    async function simulateParts(parts) {
+      for (let i = 0; i < parts.length; i++) {
+        document.body.innerHTML += `<p style='color:lime;'>Simulating part ${i + 1}/${parts.length}...</p>`;
+        await recordAndSpeak(parts[i], i);
+      }
+    }
+
+    function begin() {
+      const input = document.getElementById("scriptInput").value.trim();
+      if (!input) return alert("Please enter your script first.");
+      if (usageCount >= maxFree) {
+        alert("Free limit reached. Please pay ₦30,000 to continue.");
+        window.open("https://paystack.com/pay/simforge30000", "_blank");
+        return;
+      }
+
+      usageCount++;
+      localStorage.setItem('simforge_usage', usageCount);
+
+      const parts = input.match(/(.|\s){1,500}/g);  // Split into ~500-char parts
+      simulateParts(parts);
+    }
+  </script>
+</body>
+</html>
